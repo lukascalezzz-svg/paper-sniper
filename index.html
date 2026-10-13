@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paper Sniper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0b0a; --panel:#111311; --line:#1f231f; --line2:#2a2f2a;
+  --ink:#ecebe4; --mute:#a3a89f; --dim:#80857e;
+  --up:#c6f432; --down:#ff5a4e; --warn:#ffb547; --sky:#5ad1ff;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box;margin:0}
+html{background:var(--bg)}
+body{background:var(--bg);color:var(--ink);font:13px/1.5 'JetBrains Mono',ui-monospace,monospace;-webkit-font-smoothing:antialiased;overflow-x:clip;min-height:100vh}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;z-index:9;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.num{font-variant-numeric:tabular-nums}
+.up{color:var(--up)} .down{color:var(--down)}
+.wrap{max-width:1320px;margin:0 auto;padding:0 24px 48px}
+
+/* top */
+header{display:flex;align-items:center;gap:20px;padding:18px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.logo{font:900 15px 'Unbounded';letter-spacing:.02em;display:flex;align-items:center;gap:10px}
+.logo i{font-style:normal;color:var(--dim)}
+.cross{width:18px;height:18px;border:1.5px solid var(--up);border-radius:50%;position:relative;animation:spin 8s linear infinite}
+.cross::before,.cross::after{content:"";position:absolute;background:var(--up);left:50%;top:50%;translate:-50% -50%}
+.cross::before{width:26px;height:1.5px}.cross::after{width:1.5px;height:26px}
+@keyframes spin{to{rotate:360deg}}
+.stats{display:flex;gap:22px;margin-left:auto;color:var(--mute);flex-wrap:wrap}
+.stats b{color:var(--ink);font-weight:500}
+.live{display:inline-flex;align-items:center;gap:7px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+.on .dot{background:var(--up);box-shadow:0 0 0 0 rgba(198,244,50,.6);animation:ping 1.6s var(--ease) infinite}
+@keyframes ping{to{box-shadow:0 0 0 9px rgba(198,244,50,0)}}
+.paper{border:1px dashed var(--line2);color:var(--warn);padding:3px 8px;border-radius:4px;font-size:11px;letter-spacing:.08em}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1fr 380px;gap:24px;padding:28px 0}
+.eyebrow{color:var(--mute);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.big{font:700 clamp(44px,7vw,92px)/1 'Unbounded';letter-spacing:-.03em;margin:10px 0 6px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.big small{font:500 clamp(14px,1.6vw,20px) 'JetBrains Mono';letter-spacing:0}
+.from{color:var(--mute)} .from b{color:var(--ink);font-weight:500}
+.chart{position:relative;margin-top:18px;height:300px;border:1px solid var(--line);border-radius:10px;background:linear-gradient(180deg,#0e100e,transparent)}
+canvas{width:100%;height:100%;display:block}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;color:var(--mute);font-size:12px}
+.legend span::before{content:"";display:inline-block;width:14px;height:2px;margin-right:7px;vertical-align:middle;background:var(--c)}
+
+/* verdict */
+.verdict{border:1px solid var(--line2);border-radius:12px;padding:22px;background:var(--panel);position:relative;overflow:hidden;align-self:start}
+.verdict::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(400px 160px at 100% 0,var(--glow,rgba(255,90,78,.12)),transparent 70%)}
+.vq{font:700 13px 'Unbounded';letter-spacing:.04em}
+.va{font:900 64px/1 'Unbounded';margin:12px 0 4px;letter-spacing:-.04em;color:var(--down);transition:color .6s var(--ease)}
+.vs{color:var(--mute);font-size:12px;margin-bottom:18px}
+.check{padding:10px 0;border-top:1px solid var(--line)}
+.check .row{display:flex;justify-content:space-between;gap:10px}.check .row>.num{white-space:nowrap}
+.check .lab{display:flex;gap:9px;align-items:center}
+.tick{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--dim);display:grid;place-items:center;flex:none;transition:all .5s var(--ease)}
+.check.ok .tick{border-color:var(--up);background:var(--up)}
+.check.ok .tick::after{content:"";width:6px;height:3px;border:solid #0a0b0a;border-width:0 0 2px 2px;rotate:-45deg;translate:0 -1px}
+.bar{height:2px;background:var(--line);margin-top:8px;border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--warn);width:0;transition:width 1s var(--ease)}
+.check.ok .bar i{background:var(--up)}
+.note{margin-top:14px;font-size:11px;color:var(--dim);line-height:1.6}
+
+/* leaderboard */
+h2{font:700 13px 'Unbounded';letter-spacing:.04em;margin:8px 0 14px;display:flex;justify-content:space-between;align-items:baseline}
+h2 a{font:500 11px 'JetBrains Mono';color:var(--mute);text-decoration:none;border-bottom:1px solid var(--line2);transition:color .2s}
+h2 a:hover{color:var(--ink)}
+.board{border-top:1px solid var(--line)}
+.strat{display:grid;grid-template-columns:44px 1.4fr 1fr .8fr .8fr .8fr 140px;gap:16px;align-items:center;padding:16px 8px;border-bottom:1px solid var(--line);position:relative;transition:background .3s}
+.strat:hover{background:#0f110f}
+.strat::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:2px;background:var(--c);border-radius:2px}
+.rank{font:900 22px 'Unbounded';color:var(--dim)}
+.strat:first-child .rank{color:var(--c)}
+.sname{font:700 15px 'Unbounded'}
+.sname em{font:500 11px 'JetBrains Mono';font-style:normal;color:var(--warn);border:1px solid var(--line2);padding:1px 6px;border-radius:3px;margin-left:8px;vertical-align:middle}
+.sdesc{color:var(--mute);font-size:11px;margin-top:3px;max-width:42ch}
+.k{color:var(--dim);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.v{font-size:15px;font-weight:500}
+.eq{font:700 18px 'Unbounded'}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chip{font-size:11px;border:1px solid var(--line2);padding:2px 7px;border-radius:20px;animation:pop .4s var(--ease)}
+@keyframes pop{from{opacity:0;scale:.8}}
+.spark{width:140px;height:36px}
+
+/* bottom */
+.cols{display:grid;grid-template-columns:1.5fr 1fr;gap:24px;margin-top:36px}
+.list{border-top:1px solid var(--line);max-height:430px;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+.li{display:grid;grid-template-columns:62px 82px 1fr 58px 84px;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);align-items:center}
+.li.new{animation:slide .7s var(--ease)}
+.li.new.w{background:linear-gradient(90deg,rgba(198,244,50,.10),transparent 60%)}
+.li.new.l{background:linear-gradient(90deg,rgba(255,90,78,.10),transparent 60%)}
+@keyframes slide{from{opacity:0;translate:0 -10px}}
+.t{color:var(--dim)}
+.tag{font-size:11px;padding:1px 6px;border-radius:3px;border:1px solid var(--line2);color:var(--mute);justify-self:start}
+.tag.RUG{color:var(--down);border-color:rgba(255,90,78,.4)} .tag.TP{color:var(--up);border-color:rgba(198,244,50,.4)}
+.r{text-align:right}
+.fd{display:grid;grid-template-columns:62px 1fr auto;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line)}
+.fd.new{animation:slide .7s var(--ease)}
+.fd .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fd .n b{font-weight:700} .soc{font:500 11px 'JetBrains Mono';font-style:normal;color:#ff7ad9;margin-left:8px} .fd .n span{color:var(--dim);margin-left:8px}
+.empty{color:var(--dim);padding:28px 4px;text-align:center}
+.err{color:var(--down);font-size:11px}
+
+/* narativ radar */
+.radar{margin-top:36px}
+.nar{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;border-top:1px solid var(--line);padding-top:14px}
+.nw{border:1px solid var(--line);border-radius:10px;padding:12px 14px;position:relative;overflow:hidden;animation:pop .5s var(--ease)}
+.nw b{font:700 16px 'Unbounded';display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nw span{color:var(--mute);font-size:11px}
+.nw i{position:absolute;left:0;bottom:0;height:2px;background:#b69cff;transition:width 1s var(--ease)}
+.nw.hot{border-color:rgba(182,156,255,.45);background:linear-gradient(160deg,rgba(182,156,255,.10),transparent 60%)}
+.nw.hot b::after{content:"VRUĆE";font:500 10px 'JetBrains Mono';color:#b69cff;border:1px solid rgba(182,156,255,.5);padding:1px 5px;border-radius:3px;margin-left:8px;vertical-align:middle;letter-spacing:.06em}
+.state{font:500 11px 'JetBrains Mono';padding:1px 6px;border-radius:3px;margin-left:8px;vertical-align:middle}
+.state.p{color:var(--warn);border:1px solid rgba(255,181,71,.45)} .state.h{color:var(--down);border:1px solid rgba(255,90,78,.45)}
+@media (max-width:1000px){
+  .hero{grid-template-columns:1fr}
+  .cols{grid-template-columns:1fr}
+  .strat{grid-template-columns:34px 1fr 1fr;row-gap:10px}
+  .strat .hide{display:none}
+}
+@media (max-width:560px){
+  .wrap{padding:0 16px 40px}
+  .stats{margin-left:0;gap:14px;font-size:12px}
+  .chart{height:220px}
+  .strat{grid-template-columns:28px 1fr auto}
+  .strat .m{display:none}
+  .li{grid-template-columns:56px 1fr 52px 70px}
+  .li .t{display:none}
+  .va{font-size:52px}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"><span class="cross" aria-hidden="true"></span>PAPER<i>/</i>SNIPER</div>
+    <span class="paper">LAŽNI NOVAC</span>
+    <div class="stats">
+      <span class="live" id="live"><span class="dot"></span><span id="liveTxt">povezujem…</span></span>
+      <span>SOL <b class="num" id="sol">–</b></span>
+      <span>radi <b class="num" id="up">–</b></span>
+      <span>lansiranja <b class="num" id="seen">0</b></span>
+      <span>prati <b class="num" id="tracked">0</b></span>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Vodi: <span id="leadName">–</span></div>
+      <div class="big"><span class="num" id="leadEq">50.00€</span><small class="num" id="leadPct">+0.0%</small></div>
+      <div class="from">Start <b>50€</b> po strategiji · 10% po trejdu · fee 1.25% + 0.0006 SOL po tx · kašnjenje ~2s</div>
+      <div class="chart"><canvas id="chart" aria-label="Kapital strategija kroz vreme"></canvas></div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <aside class="verdict" id="verdict">
+      <div class="vq">PRAVE PARE?</div>
+      <div class="va" id="va">NE</div>
+      <div class="vs" id="vsub">Sve kvačice moraju biti zelene.</div>
+      <div id="checks"></div>
+      <div class="note">Jedan dan profita je šum: nekoliko srećnih tokena napravi ceo dan. Zato 72h, 150 trejdova i poređenje sa nasumičnim kupovanjem.</div>
+    </aside>
+  </section>
+
+  <h2>Strategije <a id="csv" href="/trades.csv" download>preuzmi sve trejdove (CSV)</a></h2>
+  <div class="board" id="board"></div>
+
+  <section class="radar">
+    <h2>Narativ radar <span class="t" style="font:500 11px 'JetBrains Mono'">reči iz imena tokena koji su prešli 45 SOL · poslednjih 30 min</span></h2>
+    <div class="nar" id="nar"><div class="empty">Učim šta pumpa… treba par minuta.</div></div>
+  </section>
+
+  <div class="cols">
+    <div>
+      <h2>Zatvoreni trejdovi</h2>
+      <div class="list" id="log"><div class="empty">Čekam prve trejdove…</div></div>
+    </div>
+    <div>
+      <h2>Nova lansiranja <span class="err" id="err"></span></h2>
+      <div class="list" id="feed"><div class="empty">Čekam pump.fun…</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = { munja:'#c6f432', talas:'#5ad1ff', lovac:'#ffb547', random:'#6b6f6c', serif:'#ff7ad9', narativ:'#b69cff' };
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const eur = v => v.toFixed(2) + '€';
+const sgn = v => (v >= 0 ? '+' : '') ;
+const cls = v => v > 0 ? 'up' : v < 0 ? 'down' : '';
+const ago = ms => ms < 60e3 ? Math.round(ms/1e3)+'s' : ms < 36e5 ? Math.round(ms/6e4)+'m' : (ms/36e5).toFixed(1)+'h';
+const clock = t => new Date(t).toLocaleTimeString('sr-RS',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// glatko brojanje velikog broja
+let shown = 50, target = 50;
+(function tick(){ shown += (target - shown) * (reduce ? 1 : .12); $('leadEq').textContent = shown.toFixed(2)+'€'; requestAnimationFrame(tick); })();
+
+let lastLog = 0, lastFeed = 0, data;
+function render(d){
+  data = d;
+  $('live').classList.toggle('on', d.wsUp);
+  $('liveTxt').textContent = d.wsUp ? 'uživo' : 'nema veze';
+  $('sol').textContent = d.solEur.toFixed(2)+'€';
+  $('up').textContent = ago(d.runMs);
+  $('seen').textContent = d.seen; $('tracked').textContent = d.tracked;
+  $('err').textContent = d.rpcErr ? '· ' + d.rpcErr : '';
+
+  const ranked = [...d.strategies].sort((a,b) => b.eur - a.eur);
+  const lead = ranked.find(s => !s.control);
+  target = lead.eur;
+  $('leadName').textContent = lead.name;
+  $('leadPct').textContent = sgn(lead.pct) + (lead.pct*100).toFixed(1) + '%';
+  $('leadPct').className = 'num ' + cls(lead.pct);
+  $('leadEq').className = 'num ' + cls(lead.pnlEur);
+
+  // presuda
+  const v = d.verdict;
+  $('va').textContent = v.ready ? 'MOŽDA' : 'NE';
+  $('va').style.color = v.ready ? 'var(--up)' : 'var(--down)';
+  $('verdict').style.setProperty('--glow', v.ready ? 'rgba(198,244,50,.14)' : 'rgba(255,90,78,.12)');
+  const n = v.checks.filter(c => c.ok).length;
+  $('vsub').textContent = v.ready ? 'Prošao sve testove. Kreni sa malim iznosom.' : `${n}/${v.checks.length} testova prođeno · lider: ${v.leader}`;
+  $('checks').innerHTML = v.checks.map(c => `<div class="check ${c.ok?'ok':''}"><div class="row"><span class="lab"><span class="tick"></span>${c.label}</span><span class="num">${esc(c.val)}</span></div><div class="bar"><i style="width:${c.prog*100}%"></i></div></div>`).join('');
+
+  // tabla
+  $('board').innerHTML = ranked.map((s,i) => `
+    <div class="strat" style="--c:${COLORS[s.id]}">
+      <div class="rank">${i+1}</div>
+      <div><div class="sname">${s.name}${s.control?'<em>KONTROLA</em>':''}${s.halted?'<span class="state h">UGAŠENA −30%</span>':s.pause?`<span class="state p">PAUZA ${ago(s.pause)}</span>`:''}</div><div class="sdesc">${s.desc}</div>
+        ${s.open.length?`<div class="chips">${s.open.map(o=>`<span class="chip num ${cls(o.pct)}">${esc(o.sym)} ${sgn(o.pct)}${(o.pct*100).toFixed(0)}% · ${ago(o.age)}</span>`).join('')}</div>`:''}</div>
+      <div><div class="k">kapital</div><div class="eq num ${cls(s.pnlEur)}">${eur(s.eur)}</div></div>
+      <div class="m"><div class="k">P&amp;L</div><div class="v num ${cls(s.pnlEur)}">${sgn(s.pnlEur)}${eur(s.pnlEur)}</div></div>
+      <div class="m hide"><div class="k">trejdovi</div><div class="v num">${s.trades} <span class="t">· ${s.trades?Math.round(s.wins/s.trades*100):0}% win</span></div></div>
+      <div class="m hide"><div class="k">max pad</div><div class="v num">${(s.maxDD*100).toFixed(0)}%</div></div>
+      <canvas class="spark hide" data-id="${s.id}"></canvas>
+    </div>`).join('');
+  document.querySelectorAll('.spark').forEach(c => line(c, [d.strategies.find(s=>s.id===c.dataset.id)], false));
+
+  // log trejdova
+  if (d.log.length) {
+    const fresh = d.log[0].at;
+    $('log').innerHTML = d.log.map(r => `<div class="li ${r.at > lastLog && lastLog ? 'new '+(r.eur>0?'w':'l') : ''}">
+      <span class="t num">${clock(r.at)}</span><span style="color:${COLORS[r.sid]}">${r.sid}</span>
+      <span class="n">${esc(r.sym)} <span class="tag ${r.why}">${r.why}</span></span>
+      <span class="r num ${cls(r.pct)}">${sgn(r.pct)}${(r.pct*100).toFixed(0)}%</span><span class="r num ${cls(r.eur)}">${sgn(r.eur)}${r.eur.toFixed(2)}€</span></div>`).join('');
+    lastLog = fresh;
+  }
+  if (d.feed.length) {
+    $('feed').innerHTML = d.feed.map(f => `<div class="fd ${f.at > lastFeed && lastFeed ? 'new' : ''}"><span class="t num">${clock(f.at)}</span>
+      <span class="n"><b>${esc(f.sym)}</b>${f.soc?'<em class="soc">X/TG</em>':''}<span>${esc(f.name)}</span></span><span class="num ${f.dev>1.5?'down':'t'}">dev ${f.dev.toFixed(2)}</span></div>`).join('');
+    lastFeed = d.feed[0].at;
+  }
+  const nar = d.narratives || [], top = Math.max(1, ...nar.map(n => n.runs));
+  if (nar.length) $('nar').innerHTML = nar.map(n => `<div class="nw ${n.runs>=2?'hot':''}"><b>${esc(n.w)}</b><span class="num">${n.runs} pumpa · ${n.launches} lansiranja</span><i style="width:${n.runs/top*100}%"></i></div>`).join('');
+  $('liveTxt').textContent = d.wsUp ? (d.cloud ? 'uživo · cloud' : 'uživo · laptop') : 'nema veze';
+  $('legend').innerHTML = d.strategies.map(s => `<span style="--c:${COLORS[s.id]}">${s.name}</span>`).join('');
+  line($('chart'), d.strategies, true);
+}
+
+// grafikon kapitala (canvas, bez biblioteke)
+function line(cv, series, full){
+  const dpr = devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (!w) return;
+  cv.width = w*dpr; cv.height = h*dpr;
+  const g = cv.getContext('2d'); g.scale(dpr,dpr);
+  const pts = series.flatMap(s => s.hist); if (pts.length < 2) return;
+  const pad = full ? {l:44,r:62,t:16,b:24} : {l:2,r:2,t:4,b:4};
+  const t0 = Math.min(...pts.map(p=>p[0])), t1 = Math.max(...pts.map(p=>p[0]), t0+1);
+  let lo = Math.min(50, ...pts.map(p=>p[1])), hi = Math.max(50, ...pts.map(p=>p[1]));
+  const sp = (hi-lo) || 1; lo -= sp*.12; hi += sp*.12;
+  const X = t => pad.l + (t-t0)/(t1-t0)*(w-pad.l-pad.r), Y = v => pad.t + (1-(v-lo)/(hi-lo))*(h-pad.t-pad.b);
+  if (full) {
+    g.font = '11px JetBrains Mono'; g.fillStyle = '#80857e'; g.strokeStyle = '#1a1d1a'; g.lineWidth = 1;
+    for (let i=0;i<=4;i++){ const v = lo+(hi-lo)*i/4, y = Y(v); g.beginPath(); g.moveTo(pad.l,y); g.lineTo(w-pad.r,y); g.stroke(); g.fillText(v.toFixed(1), 4, y+4); }
+    g.setLineDash([4,5]); g.strokeStyle = '#3a3f3a'; g.beginPath(); g.moveTo(pad.l,Y(50)); g.lineTo(w-pad.r,Y(50)); g.stroke(); g.setLineDash([]);
+    g.fillStyle = '#8a8f88'; g.fillText('start 50€', pad.l+6, Y(50)-6);
+  }
+  for (const s of series) {
+    if (s.hist.length < 2) continue;
+    const c = COLORS[s.id];
+    g.strokeStyle = c; g.lineWidth = full ? (s.control ? 1.2 : 2) : 1.5; g.setLineDash(s.control ? [3,4] : []);
+    g.beginPath(); s.hist.forEach(([t,v],i) => i ? g.lineTo(X(t),Y(v)) : g.moveTo(X(t),Y(v))); g.stroke(); g.setLineDash([]);
+    if (full) { const [t,v] = s.hist.at(-1); g.fillStyle = c; g.beginPath(); g.arc(X(t),Y(v),3.5,0,7); g.fill(); g.font = '600 11px JetBrains Mono'; g.fillText(v.toFixed(2)+'€', X(t)+8, Y(v)+4); }
+  }
+}
+
+// Lokalno: SSE sa laptopa. Na Vercelu: poslednji snapshot iz Supabase-a (bot ga šalje na 5s).
+const LOCAL = /^(localhost|127\.|192\.168\.|10\.)/.test(location.hostname);
+const SUPA = 'https://xgwazrawzivaqoiwwysl.supabase.co/rest/v1/sniper_snap?id=eq.1&select=data,updated_at';
+const ANON = 'sb_publishable_rJinet3DRSjTdXP2vb9HEA_j6mqlvIx';
+function stale(txt){ $('live').classList.remove('on'); $('liveTxt').textContent = txt; }
+function connect(){
+  if (LOCAL) {
+    const es = new EventSource('/events');
+    es.onmessage = e => render(JSON.parse(e.data));
+    es.onerror = () => stale('server ugašen?');
+    return;
+  }
+  $('csv').hidden = true;
+  const pull = async () => {
+    try {
+      const [row] = await (await fetch(SUPA, { headers: { apikey: ANON }, cache: 'no-store' })).json();
+      if (!row) stale('bot još nije poslao podatke');
+      else {
+        render(row.data);
+        const age = Date.now() - new Date(row.updated_at);
+        if (age > 30e3) stale('bot ugašen · zadnje ' + ago(age));
+      }
+    } catch { stale('nema mreže'); }
+    setTimeout(pull, document.hidden ? 15e3 : 4e3);
+  };
+  pull();
+}
+connect();
+addEventListener('resize', () => data && render(data));
+</script>
+</body>
+</html>
